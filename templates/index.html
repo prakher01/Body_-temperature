@@ -2,110 +2,411 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Body Temperature Monitor</title>
+    <title>Upload Video and View Processed Stream</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { display: flex; gap: 20px; }
+        .video-section { flex: 1; }
+        .rgb-section { flex: 1; }
+        .rgb-values { 
+            display: flex; 
+            gap: 20px; 
+            margin-bottom: 20px; 
+            padding: 15px; 
+            background-color: #f0f0f0; 
+            border-radius: 5px; 
+        }
+        .rgb-value { 
+            text-align: center; 
+            padding: 10px; 
+            border-radius: 5px; 
+            color: white; 
+            font-weight: bold; 
+            transition: all 0.3s ease;
+        }
+        .rgb-r { background-color: #ff4444; }
+        .rgb-g { background-color: #44ff44; }
+        .rgb-b { background-color: #4444ff; }
+        .vital-signs {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .vital-sign {
+            flex: 1;
+            padding: 15px;
+            border-radius: 5px;
             text-align: center;
+            font-weight: bold;
+            transition: all 0.3s ease;
         }
-        #video-frame {
-            max-width: 100%;
-            height: auto;
-            margin-top: 20px;
-            border: 1px solid #ccc;
-        }
-        #stats {
-            margin-top: 20px;
+        .heart-rate { 
+            background-color: #ff6b6b;
+            color: white;
             font-size: 18px;
         }
-        #upload-form {
+        .body-temperature {
+            background-color: #4ecdc4;
+            color: white;
+            font-size: 18px;
+        }
+        .status { 
+            padding: 10px; 
+            border-radius: 5px; 
+            margin-bottom: 10px; 
+            text-align: center; 
+        }
+        .status.connected { background-color: #d4edda; color: #155724; }
+        .status.disconnected { background-color: #f8d7da; color: #721c24; }
+        #rgbChart { width: 100%; height: 300px; }
+        .chart-container { background: white; padding: 10px; border-radius: 5px; }
+        .upload-form {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
             margin-bottom: 20px;
+            border: 2px dashed #dee2e6;
+        }
+        .file-input {
+            display: inline-block;
+            position: relative;
+            cursor: pointer;
+            background: #fff;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 12px 20px;
+            margin-right: 15px;
+            transition: all 0.3s ease;
+            min-width: 200px;
+        }
+        .file-input:hover {
+            border-color: #007bff;
+            background: #f8f9ff;
+        }
+        .file-input input[type="file"] {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+        .file-input-label {
+            display: block;
+            pointer-events: none;
+            color: #666;
+            font-weight: 500;
+        }
+        .file-input.has-file .file-input-label {
+            color: #007bff;
+        }
+        .upload-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        .upload-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+        .upload-button:active {
+            transform: translateY(0);
+        }
+        .upload-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
         }
     </style>
 </head>
 <body>
-    <h1>Body Temperature Monitor</h1>
-    <form id="upload-form" enctype="multipart/form-data">
-        <input type="file" id="video-upload" name="video" accept="video/*" required>
-        <button type="submit">Upload Video</button>
+    <h1>Upload Video and View Processed Stream</h1>
+    
+    <form id="upload-form" class="upload-form" enctype="multipart/form-data">
+        <div class="file-input" id="file-input-container">
+            <input type="file" name="video" accept="video/*" required id="video-input">
+            <span class="file-input-label" id="file-label">Choose Video File</span>
+        </div>
+        <button type="submit" class="upload-button">Upload and Stream</button>
     </form>
-
-    <div id="stats">
-        <p>R: <span id="r-value">0</span> |
-           G: <span id="g-value">0</span> |
-           B: <span id="b-value">0</span></p>
-        <p>Estimated Temperature: <span id="estimated-temp">0.00</span> °C</p>
+    <div class="container">
+        <div class="video-section">
+            <h2>Processed Video Stream:</h2>
+            <img id="video-stream" src="" alt="Video Stream" style="width: 100%; max-width: 600px;">
+        </div>
+        
+        <div class="rgb-section">
+            <h2>RGB Signal Analysis:</h2>
+            
+            <div class="vital-signs">
+                <div class="vital-sign heart-rate" id="heart-rate">
+                    Heart Rate<br>-- BPM
+                </div>
+                <div class="vital-sign body-temperature" id="body-temperature">
+                    Body Temperature<br>-- °C
+                </div>
+            </div>
+            
+            <div class="rgb-values">
+                <div class="rgb-value rgb-r" id="current-r">
+                    R: 0
+                </div>
+                <div class="rgb-value rgb-g" id="current-g">
+                    G: 0
+                </div>
+                <div class="rgb-value rgb-b" id="current-b">
+                    B: 0
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <canvas id="rgbChart"></canvas>
+            </div>
+        </div>
     </div>
-
-    <img id="video-frame" src="" alt="Video Frame">
-
     <script>
-        const form = document.getElementById('upload-form');
-        const videoUpload = document.getElementById('video-upload');
-        const videoFrame = document.getElementById('video-frame');
-        const rValue = document.getElementById('r-value');
-        const gValue = document.getElementById('g-value');
-        const bValue = document.getElementById('b-value');
-        const estimatedTemp = document.getElementById('estimated-temp');
-
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            // Reset UI
-            rValue.textContent = '0';
-            gValue.textContent = '0';
-            bValue.textContent = '0';
-            estimatedTemp.textContent = '0.00';
-            videoFrame.src = '';
-
-            const formData = new FormData();
-            formData.append('video', videoUpload.files[0]);
-
-            try {
-                const response = await fetch('/upload', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                let buffer = '';
-
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-
-                    buffer += decoder.decode(value, { stream: true });
-
-                    const events = buffer.split('\n\n');
-                    buffer = events.pop();
-
-                    for (const event of events) {
-                        if (event.startsWith('data:')) {
-                            const jsonStr = event.replace('data:', '').trim();
-                            try {
-                                const data = JSON.parse(jsonStr);
-
-                                videoFrame.src = data.frame_url + '?t=' + new Date().getTime();
-                                rValue.textContent = data.rgb.r;
-                                gValue.textContent = data.rgb.g;
-                                bValue.textContent = data.rgb.b;
-                                estimatedTemp.textContent = data.estimated_temperature.toFixed(2);
-
-                            } catch (err) {
-                                console.error('Invalid JSON:', err);
-                            }
+        let rgbChart;
+        let eventSource;
+        let isStreamActive = false;
+        let updateCount = 0;
+        let lastUpdateTime = 0;
+        let updateTimes = [];
+        const maxDataPoints = 100;
+        // Initialize the chart
+        function initChart() {
+            const ctx = document.getElementById('rgbChart').getContext('2d');
+            rgbChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Red',
+                        data: [],
+                        borderColor: 'rgb(255, 99, 132)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                        tension: 0.1,
+                        pointRadius: 0,
+                        pointHoverRadius: 3
+                    }, {
+                        label: 'Green',
+                        data: [],
+                        borderColor: 'rgb(75, 192, 192)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        tension: 0.1,
+                        pointRadius: 0,
+                        pointHoverRadius: 3
+                    }, {
+                        label: 'Blue',
+                        data: [],
+                        borderColor: 'rgb(54, 162, 235)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        tension: 0.1,
+                        pointRadius: 0,
+                        pointHoverRadius: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    scales: {
+                        x: {
+                            display: false
+                        },
+                        y: {
+                            beginAtZero: true,
+                            max: 255
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'RGB Signal Values (Real-time)'
                         }
                     }
                 }
-            } catch (err) {
-                console.error('Error uploading video or reading stream:', err);
-                alert('An error occurred while processing the video.');
+            });
+        }
+        // Update connection status (now silent)
+        function updateConnectionStatus(connected) {
+            // Connection status is now handled silently
+            // No UI updates for connection status
+        }
+        // Handle RGB data updates
+        function handleRGBData(data) {
+            if (data.heartbeat) return; // Skip heartbeat messages
+            
+            updateCount++;
+            
+            // Update current values with smooth transitions
+            document.getElementById('current-r').textContent = `R: ${data.r}`;
+            document.getElementById('current-g').textContent = `G: ${data.g}`;
+            document.getElementById('current-b').textContent = `B: ${data.b}`;
+            
+            // Update heart rate
+            const hrText = typeof data.heart_rate === 'string' ? data.heart_rate : data.heart_rate.toFixed(1);
+            document.getElementById('heart-rate').innerHTML = `Heart Rate<br>${hrText} BPM`;
+            
+            // Update body temperature
+            if (data.body_temprature !== undefined) {
+                document.getElementById('body-temperature').innerHTML = 
+                    `Body Temperature<br>${data.body_temprature.toFixed(1)} °C`;
             }
+            
+            // Update chart
+            const time = updateCount;
+            
+            // Add new data point
+            rgbChart.data.labels.push(time);
+            rgbChart.data.datasets[0].data.push(data.r);
+            rgbChart.data.datasets[1].data.push(data.g);
+            rgbChart.data.datasets[2].data.push(data.b);
+            
+            // Keep only last N data points
+            if (rgbChart.data.labels.length > maxDataPoints) {
+                rgbChart.data.labels.shift();
+                rgbChart.data.datasets[0].data.shift();
+                rgbChart.data.datasets[1].data.shift();
+                rgbChart.data.datasets[2].data.shift();
+            }
+            
+            rgbChart.update('none');
+        }
+        // Start Server-Sent Events connection
+        function startSSEConnection() {
+            if (eventSource) {
+                eventSource.close();
+            }
+            
+            eventSource = new EventSource('/rgb_stream');
+            
+            eventSource.onopen = function() {
+                console.log('SSE connection opened');
+                updateConnectionStatus(true);
+                isStreamActive = true;
+            };
+            
+            eventSource.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    handleRGBData(data);
+                } catch (error) {
+                    console.error('Error parsing SSE data:', error);
+                }
+            };
+            
+            eventSource.onerror = function(error) {
+                console.error('SSE error:', error);
+                updateConnectionStatus(false);
+                
+                // Auto-reconnect after 3 seconds
+                setTimeout(() => {
+                    if (isStreamActive) {
+                        console.log('Attempting to reconnect...');
+                        startSSEConnection();
+                    }
+                }, 3000);
+            };
+        }
+        // Stop SSE connection
+        function stopSSEConnection() {
+            isStreamActive = false;
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
+            updateConnectionStatus(false);
+        }
+        // Form submission handler
+        document.getElementById("upload-form").addEventListener("submit", function (e) {
+            e.preventDefault();
+            // Stop any existing connections first
+            stopSSEConnection();
+            
+            // Reset video stream
+            document.getElementById("video-stream").src = "";
+            
+            // Reset UI immediately
+            document.getElementById('heart-rate').innerHTML = 'Heart Rate<br>-- BPM';
+            document.getElementById('body-temperature').innerHTML = 'Body Temperature<br>-- °C';
+            document.getElementById('current-r').textContent = 'R: 0';
+            document.getElementById('current-g').textContent = 'G: 0';
+            document.getElementById('current-b').textContent = 'B: 0';
+            const formData = new FormData(this);
+            fetch("/upload", {
+                method: "POST",
+                body: formData
+            })
+            .then(response => {
+                if (response.ok) {
+                    return fetch("/set_variable", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({ variable: "reset" })
+                    });
+                } else {
+                    throw new Error("Failed to upload video.");
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    // Reset chart data
+                    rgbChart.data.labels = [];
+                    rgbChart.data.datasets[0].data = [];
+                    rgbChart.data.datasets[1].data = [];
+                    rgbChart.data.datasets[2].data = [];
+                    rgbChart.update();
+                    
+                    // Reset counters
+                    updateCount = 0;
+                    updateTimes = [];
+                    
+                    // Add small delay to ensure backend is ready
+                    setTimeout(() => {
+                        // Start video stream and SSE connection
+                        document.getElementById("video-stream").src = "/video_feed?" + new Date().getTime();
+                        startSSEConnection();
+                    }, 500);
+                } else {
+                    alert("Failed to set variable.");
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert("Error occurred.");
+            });
+        });
+        // Initialize chart on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            initChart();
+            
+            // Add file input change listener
+            document.getElementById('video-input').addEventListener('change', function(e) {
+                const fileLabel = document.getElementById('file-label');
+                const fileContainer = document.getElementById('file-input-container');
+                
+                if (e.target.files && e.target.files[0]) {
+                    fileLabel.textContent = e.target.files[0].name;
+                    fileContainer.classList.add('has-file');
+                } else {
+                    fileLabel.textContent = 'Choose Video File';
+                    fileContainer.classList.remove('has-file');
+                }
+            });
+        });
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            stopSSEConnection();
         });
     </script>
 </body>
